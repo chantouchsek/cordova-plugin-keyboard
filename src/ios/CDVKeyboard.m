@@ -6,9 +6,7 @@
  to you under the Apache License, Version 2.0 (the
  "License"); you may not use this file except in compliance
  with the License.  You may obtain a copy of the License at
-
  http://www.apache.org/licenses/LICENSE-2.0
-
  Unless required by applicable law or agreed to in writing,
  software distributed under the License is distributed on an
  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -28,6 +26,7 @@
 @interface CDVKeyboard () <UIScrollViewDelegate>
 
 @property (nonatomic, readwrite, assign) BOOL keyboardIsVisible;
+@property (readwrite, assign) CGFloat keyboardHeight;
 
 @end
 
@@ -193,10 +192,14 @@ static IMP WKOriginalImp;
     // Note: we check for _shrinkView at this point instead of the beginning of the method to handle
     // the case where the user disabled shrinkView while the keyboard is showing.
     // The webview should always be able to return to full size
+    _shrinkView = YES;
     CGRect keyboardIntersection = CGRectIntersection(screen, keyboard);
     if (CGRectContainsRect(screen, keyboardIntersection) && !CGRectIsEmpty(keyboardIntersection) && _shrinkView && self.keyboardIsVisible) {
         screen.size.height -= keyboardIntersection.size.height;
-        self.webView.scrollView.scrollEnabled = !self.disableScrollingInShrinkView;
+        self.keyboardHeight = keyboardIntersection.size.height;
+
+//        self.webView.scrollView.scrollEnabled = !self.disableScrollingInShrinkView;
+        self.webView.scrollView.scrollEnabled = NO;
     }
 
     // A view's frame is in its superview's coordinate system so we need to convert again
@@ -207,12 +210,24 @@ static IMP WKOriginalImp;
 
 - (void)scrollViewDidScroll:(UIScrollView*)scrollView
 {
+    /*
+     Costin Moraru
+
+     On ios 12 with default cordova webview won't scroll webview content to bottom with bounds.
+     Used setContentOffset to scroll webview content to 0.0f.
+
+     */
+//    if (_shrinkView && _keyboardIsVisible) {
+//        CGFloat maxY = scrollView.contentSize.height - scrollView.bounds.size.height;
+//        if (scrollView.bounds.origin.y > maxY) {
+//            scrollView.bounds = CGRectMake(scrollView.bounds.origin.x, maxY,
+//                                           scrollView.bounds.size.width, scrollView.bounds.size.height);
+//        }
+//    }
     if (_shrinkView && _keyboardIsVisible) {
-        CGFloat maxY = scrollView.contentSize.height - scrollView.bounds.size.height;
-        if (scrollView.bounds.origin.y > maxY) {
-            scrollView.bounds = CGRectMake(scrollView.bounds.origin.x, maxY,
-                                           scrollView.bounds.size.width, scrollView.bounds.size.height);
-        }
+        // Scroll webview content to bottom
+        CGPoint bottomOffset = CGPointMake(0.0f, 0.0f);
+        [self.webView.scrollView setContentOffset:bottomOffset animated:NO];
     }
 }
 
@@ -227,8 +242,11 @@ static IMP WKOriginalImp;
         }
 
         self.shrinkView = [value boolValue];
+        // Scroll webview content to bottom
+        CGPoint bottomOffset = CGPointMake(0.0f, 0.0f);
+        [self.webView.scrollView setContentOffset:bottomOffset animated:NO];
     }
-    
+
     [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsBool:self.shrinkView]
                                 callbackId:command.callbackId];
 }
@@ -243,7 +261,7 @@ static IMP WKOriginalImp;
 
         self.disableScrollingInShrinkView = [value boolValue];
     }
-    
+
     [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsBool:self.disableScrollingInShrinkView]
                                 callbackId:command.callbackId];
 }
@@ -255,10 +273,10 @@ static IMP WKOriginalImp;
         if (!([value isKindOfClass:[NSNumber class]])) {
             value = [NSNumber numberWithBool:NO];
         }
-        
+
         self.hideFormAccessoryBar = [value boolValue];
     }
-    
+
     [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsBool:self.hideFormAccessoryBar]
                                 callbackId:command.callbackId];
 }
